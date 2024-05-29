@@ -102,3 +102,12 @@ pub fn visual_neuron_activation(
     }
     sum
 }
+
+pub fn cap(val: f32, max: f32) -> f32 {
+    let new = (val / max).fract() * max;
+    if new < 0.0 {
+        return max + new;
+    }
+
+    new
+}

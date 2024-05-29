@@ -7,6 +7,9 @@ pub struct Constants {
     pub reproduction_distance: f32,
     pub step_size: f32,
     pub food_energy: f32,
+    pub neuron_length: f32,
+    pub world_shape: (f32, f32),
+    pub input_neurons_num: i32,
 }
 
 impl Constants {

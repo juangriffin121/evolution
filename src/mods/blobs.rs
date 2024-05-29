@@ -1,4 +1,5 @@
 use crate::mods::brains::Brain;
+use crate::mods::utils::cap;
 use crate::mods::world::World;
 
 use super::utils::visual_neuron_activation;
@@ -62,11 +63,11 @@ impl Blob {
         (child1, child2)
     }
 
-    pub fn step(&mut self, speed: f32) {
+    pub fn step(&mut self, speed: f32, shape: &(f32, f32), step_size: f32) {
         let direction = self.direction();
         self.position = (
-            self.position.0 + speed * direction.0,
-            self.position.1 + speed * direction.1,
+            cap(self.position.0 + step_size * speed * direction.0, shape.0),
+            cap(self.position.1 + step_size * speed * direction.1, shape.1),
         )
     }
 

@@ -1,7 +1,10 @@
+use plotters::prelude::*;
+use rand::Rng;
 use std::usize;
 
 use super::{
-    blobs::{Blob, BlobType},
+    blobs::{self, Blob, BlobType},
+    brains::Brain,
     constants::Constants,
 };
 use rayon::prelude::*;
@@ -12,6 +15,13 @@ pub struct World {
 }
 
 impl World {
+    pub fn new(blobs: Vec<Blob>, constants: Constants) -> World {
+        World {
+            blobs,
+            shape: constants.world_shape,
+            constants,
+        }
+    }
     fn get_indexes(&self) -> (Vec<usize>, Vec<usize>) {
         let prey_indexes = self
             .blobs
@@ -65,7 +75,7 @@ impl World {
             let response = &responses[i];
             let (speed, angle) = (response[0], response[1]);
             blob.angle = angle;
-            blob.step(speed);
+            blob.step(speed, &self.shape, self.constants.step_size);
         });
     }
 
@@ -101,18 +111,7 @@ impl World {
         interactions
     }
 
-    pub fn actualize(&mut self) {
-        //get list of predator and prey positions in the blobs vec
-        let (predator_indexes, prey_indexes) = self.get_indexes();
-
-        let stimuli_list = self.gather_stimuli();
-
-        let responses = self.gather_responses(stimuli_list);
-
-        self.move_blobs(responses);
-
-        let interactions = self.check_interactions(&predator_indexes, &prey_indexes);
-
+    fn kills(&mut self, interactions: Vec<(usize, usize)>, prey_indexes: &Vec<usize>) {
         //get vecs of mutable refferences to the preys and predators
         let mut preys = Vec::new();
         let mut predators = Vec::new();
@@ -137,8 +136,105 @@ impl World {
         for idx in to_remove {
             self.blobs.remove(idx).die();
         }
-
-        //reproduce
-        //graph
     }
+
+    fn reproduce_blobs(&mut self) {
+        let mut to_reproduce = Vec::new();
+        for (blob_idx, blob) in self.blobs.iter().enumerate() {
+            if blob.energy >= 2.0 {
+                to_reproduce.push(blob_idx);
+            }
+        }
+        for blob_idx in to_reproduce {
+            let blob = self.blobs.remove(blob_idx);
+            let (child1, child2) = blob.reproduce(self.constants.reproduction_distance);
+            self.blobs.push(child1);
+            self.blobs.push(child2);
+        }
+    }
+
+    fn graph(&self, filename: &str) -> Result<(), Box<dyn std::error::Error>> {
+        let screen_shape = (1366, 768);
+        let drawing_area = BitMapBackend::new(filename, screen_shape).into_drawing_area();
+
+        // Fill the background with white color
+        drawing_area.fill(&WHITE)?;
+
+        // Define the coordinate system
+        let mut chart = ChartBuilder::on(&drawing_area)
+            .build_cartesian_2d(-0.0_f32..self.shape.0, 0.0_f32..self.shape.1)?;
+
+        // Draw the mesh (the grid lines and labels)
+        chart.configure_mesh().draw()?;
+
+        // Draw the circles
+        for blob in &self.blobs {
+            let color = match blob.blob_type {
+                BlobType::Prey => GREEN.mix(0.9).filled(),
+                BlobType::Predator => RED.mix(0.9).filled(),
+            };
+            chart.draw_series(std::iter::once(Circle::new(
+                blob.position,
+                1.0 * (1366.0 / self.shape.0).round(),
+                color,
+            )))?;
+        }
+
+        // Save the result to file
+        drawing_area.present()?;
+        Ok(())
+    }
+
+    pub fn actualize(&mut self, age: i32) {
+        let (predator_indexes, prey_indexes) = self.get_indexes();
+
+        let stimuli_list = self.gather_stimuli();
+
+        let responses = self.gather_responses(stimuli_list);
+
+        self.move_blobs(responses);
+
+        let interactions = self.check_interactions(&predator_indexes, &prey_indexes);
+
+        self.kills(interactions, &prey_indexes);
+
+        self.reproduce_blobs();
+
+        let filename = format!("./animation/frame{:04}.png", age);
+        println!("{filename}");
+        self.graph(&filename).expect("something wong with graphing")
+    }
+}
+
+pub fn make_world(
+    num_prey: i32,
+    num_predators: i32,
+    network_shape: Vec<i32>,
+    constants: Constants,
+) -> World {
+    let mut rng = rand::thread_rng();
+    let mut blobs = Vec::new();
+    for _ in 0..num_prey {
+        let position = (
+            rng.gen_range(0.0..constants.world_shape.0),
+            rng.gen_range(0.0..constants.world_shape.1),
+        );
+
+        let angle = rng.gen_range(0.0..std::f32::consts::TAU);
+
+        let brain = Brain::new(network_shape.clone(), 0.1, constants.neuron_length, None);
+        blobs.push(Blob::new(brain, position, angle, BlobType::Prey, 1.0));
+    }
+    for _ in 0..num_predators {
+        let position = (
+            rng.gen_range(0.0..constants.world_shape.0),
+            rng.gen_range(0.0..constants.world_shape.1),
+        );
+
+        let angle = rng.gen_range(0.0..std::f32::consts::TAU);
+
+        let brain = Brain::new(network_shape.clone(), 0.1, constants.neuron_length, None);
+        blobs.push(Blob::new(brain, position, angle, BlobType::Predator, 1.0));
+    }
+    World::new(blobs, constants)
 }

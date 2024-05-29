@@ -14,8 +14,8 @@ impl Brain {
     pub fn new(
         network_shape: Vec<i32>,
         neuron_separation_radians: f32,
-        weights: Option<Vec<Vec<Vec<f32>>>>,
         neuron_length: f32,
+        weights: Option<Vec<Vec<Vec<f32>>>>,
     ) -> Brain {
         let weights = weights.unwrap_or(Self::init_random(&network_shape));
         let mut neuron_angles = Vec::new();
@@ -72,8 +72,8 @@ impl Brain {
         Brain::new(
             self.network_shape.clone(),
             self.neuron_separation_radians,
-            Some(weights),
             self.neuron_length,
+            Some(weights),
         )
     }
 
@@ -81,7 +81,6 @@ impl Brain {
         let mut input = stimuli.clone();
         for layer in 0..self.network_shape.len() - 1 {
             input = matrix_prod(&self.weights[layer], &input);
-            println!("{input:?}");
         }
         input
     }
