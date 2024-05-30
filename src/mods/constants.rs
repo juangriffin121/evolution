@@ -10,6 +10,16 @@ pub struct Constants {
     pub neuron_length: f32,
     pub world_shape: (f32, f32),
     pub input_neurons_num: i32,
+    pub motion_energy_cost: f32,
+    pub prey_base_energy_gain: f32,
+    pub predator_base_energy_loss: f32,
+    pub mutation_rate: f32,
+    pub ages: i32,
+    pub num_predators: i32,
+    pub num_prey: i32,
+    pub max_speed: f32,
+    pub max_angle_diff: f32,
+    pub graph_neurons: bool,
 }
 
 impl Constants {

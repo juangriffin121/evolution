@@ -38,23 +38,23 @@ impl Blob {
         (self.angle.cos(), self.angle.sin())
     }
 
-    pub fn reproduce(self, reproduction_distance: f32) -> (Blob, Blob) {
+    pub fn reproduce(self, reproduction_distance: f32, mutation_rate: f32) -> (Blob, Blob) {
         let direction = self.direction();
         let child1 = Blob {
-            brain: self.brain.make_child(),
+            brain: self.brain.make_child(mutation_rate),
             position: (
-                self.position.0 + reproduction_distance * direction.0,
-                self.position.1 + reproduction_distance * direction.1,
+                self.position.0 - reproduction_distance * self.radius() * direction.0,
+                self.position.1 - reproduction_distance * self.radius() * direction.1,
             ),
-            angle: self.angle,
+            angle: self.angle + std::f32::consts::FRAC_PI_2,
             blob_type: self.blob_type,
             energy: self.energy / 2.,
         };
         let child2 = Blob {
-            brain: self.brain.make_child(),
+            brain: self.brain.make_child(mutation_rate),
             position: (
-                self.position.0 + reproduction_distance * direction.0,
-                self.position.1 + reproduction_distance * direction.1,
+                self.position.0 + reproduction_distance * self.radius() * direction.0,
+                self.position.1 + reproduction_distance * self.radius() * direction.1,
             ),
             angle: self.angle,
             blob_type: self.blob_type,
@@ -63,12 +63,13 @@ impl Blob {
         (child1, child2)
     }
 
-    pub fn step(&mut self, speed: f32, shape: &(f32, f32), step_size: f32) {
+    pub fn step(&mut self, speed: f32, shape: &(f32, f32), step_size: f32, cost: f32) {
         let direction = self.direction();
         self.position = (
             cap(self.position.0 + step_size * speed * direction.0, shape.0),
             cap(self.position.1 + step_size * speed * direction.1, shape.1),
-        )
+        );
+        self.add_energy(-cost * speed.abs());
     }
 
     pub fn check_surroundings(&self, world: &World) -> Vec<f32> {
@@ -118,5 +119,8 @@ impl Blob {
         self.energy += energy;
     }
 
+    pub fn radius(&self) -> f32 {
+        self.energy.sqrt()
+    }
     pub fn die(self) {}
 }

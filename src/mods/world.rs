@@ -1,6 +1,6 @@
 use plotters::prelude::*;
 use rand::Rng;
-use std::usize;
+use std::{collections::HashSet, usize};
 
 use super::{
     blobs::{self, Blob, BlobType},
@@ -73,9 +73,18 @@ impl World {
     fn move_blobs(&mut self, responses: Vec<Vec<f32>>) {
         self.blobs.par_iter_mut().enumerate().for_each(|(i, blob)| {
             let response = &responses[i];
-            let (speed, angle) = (response[0], response[1]);
-            blob.angle = angle;
-            blob.step(speed, &self.shape, self.constants.step_size);
+
+            let (speed, angle_diff) = (
+                self.constants.max_speed * response[0],
+                2.0 * self.constants.max_angle_diff * (response[1] - 0.5),
+            );
+            blob.angle += angle_diff;
+            blob.step(
+                speed,
+                &self.shape,
+                self.constants.step_size,
+                self.constants.motion_energy_cost,
+            );
         });
     }
 
@@ -88,7 +97,7 @@ impl World {
         for (j, prey) in preys.iter().enumerate() {
             let distance = (predator_position.0 - prey.position.0).powi(2)
                 + (predator_position.1 - prey.position.1).powi(2);
-            if distance < 2.0 {
+            if distance <= prey.radius() + predator.radius() {
                 interactions.push((i, j))
             }
         }
@@ -123,18 +132,25 @@ impl World {
         }
 
         //run through the interactions and feed the predators and mark the prey to kill
-        let mut to_remove = Vec::new();
+        let mut to_remove = HashSet::new();
         for (predator_idx, prey_idx) in interactions {
             let predator: &mut Blob = predators[predator_idx];
             let prey: &mut Blob = preys[prey_idx];
             predator.add_energy(self.constants.food_energy * prey.energy);
 
             //horrible way of writting the prey_idx´th prey position in the blobs array
-            to_remove.push(prey_indexes[prey_idx]);
+            to_remove.insert(prey_indexes[prey_idx]);
         }
+
+        let mut to_remove: Vec<_> = to_remove.into_iter().collect();
+        //sort the removing indexes so i dont fuck up the blobs indexes while looping over it
+        to_remove.sort_unstable_by(|a, b| b.cmp(a));
         //kill the prey to remove
-        for idx in to_remove {
-            self.blobs.remove(idx).die();
+        for idx in &to_remove {
+            if *idx >= self.blobs.len() {
+                println!("to remove: {:?}", to_remove)
+            }
+            self.blobs.remove(*idx).die();
         }
     }
 
@@ -145,15 +161,40 @@ impl World {
                 to_reproduce.push(blob_idx);
             }
         }
-        for blob_idx in to_reproduce {
-            let blob = self.blobs.remove(blob_idx);
-            let (child1, child2) = blob.reproduce(self.constants.reproduction_distance);
+        for blob_idx in to_reproduce.iter().rev() {
+            let blob = self.blobs.remove(*blob_idx);
+            let (child1, child2) = blob.reproduce(
+                self.constants.reproduction_distance,
+                self.constants.mutation_rate,
+            );
             self.blobs.push(child1);
             self.blobs.push(child2);
         }
     }
 
-    fn graph(&self, filename: &str) -> Result<(), Box<dyn std::error::Error>> {
+    fn base_energy(&mut self) {
+        self.blobs.par_iter_mut().for_each(|blob| {
+            let energy = match blob.blob_type {
+                BlobType::Prey => self.constants.prey_base_energy_gain,
+                BlobType::Predator => -self.constants.predator_base_energy_loss,
+            };
+            blob.add_energy(energy);
+        })
+    }
+
+    fn starved(&mut self) {
+        let mut starved_blobs_idxs = Vec::new();
+        for (i, blob) in self.blobs.iter().enumerate() {
+            if blob.energy < 0.0 {
+                starved_blobs_idxs.push(i);
+            }
+        }
+        for i in starved_blobs_idxs.iter().rev() {
+            self.blobs.remove(*i).die();
+        }
+    }
+
+    fn graph(&self, filename: &str, graph_neurons: bool) -> Result<(), Box<dyn std::error::Error>> {
         let screen_shape = (1366, 768);
         let drawing_area = BitMapBackend::new(filename, screen_shape).into_drawing_area();
 
@@ -175,9 +216,34 @@ impl World {
             };
             chart.draw_series(std::iter::once(Circle::new(
                 blob.position,
-                1.0 * (1366.0 / self.shape.0).round(),
+                blob.radius() * (1366.0 / self.shape.0).round(),
                 color,
             )))?;
+
+            if graph_neurons {
+                let neuron_count = self.constants.input_neurons_num; // Assume `neuron_count` is defined in blob
+                let neuron_length = self.constants.neuron_length; // Assume `neuron_length` is defined in blob
+                let blob_angle = blob.angle; // Assume `direction` is the angle in radians
+
+                let half_neurons = neuron_count / 2;
+                let angle_step = blob.brain.neuron_separation_radians;
+
+                for i in 0..neuron_count {
+                    let angle = if i < half_neurons {
+                        blob_angle - (i as f32 * angle_step)
+                    } else {
+                        blob_angle + ((i - half_neurons) as f32 * angle_step)
+                    };
+
+                    let end_x = blob.position.0 + angle.cos() * neuron_length;
+                    let end_y = blob.position.1 + angle.sin() * neuron_length;
+
+                    chart.draw_series(std::iter::once(PathElement::new(
+                        vec![blob.position, (end_x, end_y)],
+                        &BLACK,
+                    )))?;
+                }
+            }
         }
 
         // Save the result to file
@@ -185,12 +251,14 @@ impl World {
         Ok(())
     }
 
-    pub fn actualize(&mut self, age: i32) {
+    pub fn update(&mut self, age: i32) {
         let (predator_indexes, prey_indexes) = self.get_indexes();
 
         let stimuli_list = self.gather_stimuli();
+        // println!("{stimuli_list:?}");
 
         let responses = self.gather_responses(stimuli_list);
+        // println!("{responses:?}");
 
         self.move_blobs(responses);
 
@@ -198,11 +266,16 @@ impl World {
 
         self.kills(interactions, &prey_indexes);
 
+        self.base_energy();
+
+        self.starved();
+
         self.reproduce_blobs();
 
         let filename = format!("./animation/frame{:04}.png", age);
         println!("{filename}");
-        self.graph(&filename).expect("something wong with graphing")
+        self.graph(&filename, self.constants.graph_neurons)
+            .expect("something wong with graphing")
     }
 }
 
@@ -236,5 +309,6 @@ pub fn make_world(
         let brain = Brain::new(network_shape.clone(), 0.1, constants.neuron_length, None);
         blobs.push(Blob::new(brain, position, angle, BlobType::Predator, 1.0));
     }
+
     World::new(blobs, constants)
 }

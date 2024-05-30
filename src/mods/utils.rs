@@ -81,13 +81,13 @@ pub fn distance_to_segment(
 
     let projection = displacement.0 * direction.0 + displacement.1 * direction.1;
     let projection = 0.0_f32.max(length.min(projection));
-    let closest_point = (projection * direction.0, projection * direction.1);
+    let closest_point = (
+        projection * direction.0 + starting_point.0,
+        projection * direction.1 + starting_point.1,
+    );
     let distance =
         (object_center.0 - closest_point.0).powi(2) + (object_center.1 - closest_point.1).powi(2);
-    if distance == 0.0 {
-        return 0.0;
-    }
-    1.0 / distance
+    distance.sqrt()
 }
 
 pub fn visual_neuron_activation(
@@ -98,7 +98,11 @@ pub fn visual_neuron_activation(
 ) -> f32 {
     let mut sum = 0.;
     for blob in visible_blobs {
-        sum += distance_to_segment(&blob.position, neuron_starting_point, direction, length)
+        let distance =
+            distance_to_segment(&blob.position, neuron_starting_point, direction, length);
+        if distance <= blob.radius() {
+            sum += 1.0
+        }
     }
     sum
 }
@@ -108,6 +112,9 @@ pub fn cap(val: f32, max: f32) -> f32 {
     if new < 0.0 {
         return max + new;
     }
-
     new
+}
+
+pub fn sigmoid(x: f32) -> f32 {
+    1.0 / (1.0 + (-x).exp())
 }
