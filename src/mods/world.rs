@@ -1,13 +1,19 @@
 use plotters::prelude::*;
 use rand::Rng;
+use serde::{Deserialize, Serialize};
 use std::{collections::HashSet, usize};
 
 use super::{
-    blobs::{self, Blob, BlobType},
+    blobs::{Blob, BlobType},
     brains::Brain,
     constants::Constants,
 };
+use bincode;
 use rayon::prelude::*;
+use std::fs::File;
+use std::io::{self, Read, Write};
+
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct World {
     pub blobs: Vec<Blob>,
     pub shape: (f32, f32),
@@ -276,6 +282,43 @@ impl World {
         println!("{filename}");
         self.graph(&filename, self.constants.graph_neurons)
             .expect("something wong with graphing")
+    }
+
+    pub fn evolve(&mut self) {
+        for age in 0..self.constants.ages {
+            self.update(age);
+            let blobs_count = self.blobs.len();
+            let predators = self
+                .blobs
+                .iter()
+                .filter(|blob| blob.blob_type == BlobType::Predator)
+                .count();
+            let preys = self
+                .blobs
+                .iter()
+                .filter(|blob| blob.blob_type == BlobType::Prey)
+                .count();
+            let log = format!(
+                "all: {}, prey: {}, predators: {}",
+                blobs_count, preys, predators
+            );
+            println!("{log}")
+        }
+    }
+
+    pub fn save_to_file(&self, filename: &str) -> io::Result<()> {
+        let encoded: Vec<u8> = bincode::serialize(self).expect("Failed to serialize");
+        let mut file = File::create(filename)?;
+        file.write_all(&encoded)?;
+        Ok(())
+    }
+
+    pub fn load_from_file(filename: &str) -> io::Result<World> {
+        let mut file = File::open(filename)?;
+        let mut buffer = Vec::new();
+        file.read_to_end(&mut buffer)?;
+        let world: World = bincode::deserialize(&buffer).expect("Failed to deserialize");
+        Ok(world)
     }
 }
 

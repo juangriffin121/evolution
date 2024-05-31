@@ -1,9 +1,10 @@
 use crate::mods::utils::{matrix_prod, sum_weights};
 use rand::Rng;
+use serde::{Deserialize, Serialize};
 
 use super::utils::sigmoid;
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Brain {
     pub network_shape: Vec<i32>,
     pub neuron_separation_radians: f32,

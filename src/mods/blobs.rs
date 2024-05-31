@@ -1,9 +1,11 @@
+use serde::{Deserialize, Serialize};
+
 use crate::mods::brains::Brain;
 use crate::mods::utils::cap;
 use crate::mods::world::World;
 
 use super::utils::visual_neuron_activation;
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Blob {
     pub brain: Brain,
     pub position: (f32, f32),
@@ -11,7 +13,7 @@ pub struct Blob {
     pub blob_type: BlobType,
     pub energy: f32,
 }
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Serialize, Deserialize, Debug)]
 pub enum BlobType {
     Prey,
     Predator,

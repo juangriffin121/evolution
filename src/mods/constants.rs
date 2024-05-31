@@ -1,8 +1,8 @@
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json;
 use std::fs;
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Constants {
     pub reproduction_distance: f32,
     pub step_size: f32,
