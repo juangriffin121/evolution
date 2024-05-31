@@ -1,8 +1,7 @@
+use super::activations::Activation;
 use crate::mods::utils::{matrix_prod, sum_weights};
 use rand::Rng;
 use serde::{Deserialize, Serialize};
-
-use super::utils::sigmoid;
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Brain {
@@ -11,6 +10,7 @@ pub struct Brain {
     pub weights: Vec<Vec<Vec<f32>>>,
     pub neuron_angles: Vec<f32>,
     pub neuron_length: f32,
+    pub activation: Activation,
 }
 
 impl Brain {
@@ -19,6 +19,7 @@ impl Brain {
         neuron_separation_radians: f32,
         neuron_length: f32,
         weights: Option<Vec<Vec<Vec<f32>>>>,
+        activation: Activation,
     ) -> Brain {
         let weights = weights.unwrap_or(Self::init_random(&network_shape));
         let mut neuron_angles = Vec::new();
@@ -33,6 +34,7 @@ impl Brain {
             weights,
             neuron_angles,
             neuron_length,
+            activation,
         }
     }
 
@@ -80,6 +82,7 @@ impl Brain {
             self.neuron_separation_radians,
             self.neuron_length,
             Some(weights),
+            self.activation.clone(),
         )
     }
 
@@ -87,7 +90,9 @@ impl Brain {
         let mut input = stimuli.clone();
         for layer in 0..self.network_shape.len() - 1 {
             input = matrix_prod(&self.weights[layer], &input);
-            input = input.iter().map(|&x| sigmoid(x)).collect();
+            if layer != self.network_shape.len() - 2 {
+                input = input.iter().map(|&x| self.activation.apply(x)).collect();
+            }
         }
         input
     }

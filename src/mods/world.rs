@@ -1,17 +1,17 @@
-use plotters::prelude::*;
-use rand::Rng;
-use serde::{Deserialize, Serialize};
-use std::{collections::HashSet, usize};
-
 use super::{
+    activations::{sigmoid, tanh, which_activation},
     blobs::{Blob, BlobType},
     brains::Brain,
     constants::Constants,
 };
 use bincode;
+use plotters::prelude::*;
+use rand::Rng;
 use rayon::prelude::*;
+use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::{self, Read, Write};
+use std::{collections::HashSet, usize};
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct World {
@@ -81,8 +81,8 @@ impl World {
             let response = &responses[i];
 
             let (speed, angle_diff) = (
-                self.constants.max_speed * response[0],
-                2.0 * self.constants.max_angle_diff * (response[1] - 0.5),
+                self.constants.max_speed * sigmoid(response[0]),
+                self.constants.max_angle_diff * tanh(response[1]),
             );
             blob.angle += angle_diff;
             blob.step(
@@ -302,7 +302,11 @@ impl World {
                 "all: {}, prey: {}, predators: {}",
                 blobs_count, preys, predators
             );
-            println!("{log}")
+            println!("{log}");
+            if preys == 0 || predators == 0 {
+                println!("someone got extinct");
+                break;
+            }
         }
     }
 
@@ -338,7 +342,14 @@ pub fn make_world(
 
         let angle = rng.gen_range(0.0..std::f32::consts::TAU);
 
-        let brain = Brain::new(network_shape.clone(), 0.1, constants.neuron_length, None);
+        let activation = which_activation(&constants);
+        let brain = Brain::new(
+            network_shape.clone(),
+            0.1,
+            constants.neuron_length,
+            None,
+            activation,
+        );
         blobs.push(Blob::new(brain, position, angle, BlobType::Prey, 1.0));
     }
     for _ in 0..num_predators {
@@ -349,7 +360,14 @@ pub fn make_world(
 
         let angle = rng.gen_range(0.0..std::f32::consts::TAU);
 
-        let brain = Brain::new(network_shape.clone(), 0.1, constants.neuron_length, None);
+        let activation = which_activation(&constants);
+        let brain = Brain::new(
+            network_shape.clone(),
+            0.1,
+            constants.neuron_length,
+            None,
+            activation,
+        );
         blobs.push(Blob::new(brain, position, angle, BlobType::Predator, 1.0));
     }
 

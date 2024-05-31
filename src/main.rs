@@ -8,7 +8,7 @@ use mods::world::make_world;
 use crate::mods::world::World;
 
 fn main() {
-    println!("Hello, blobworld");
+    println!("Hello, blobworld!");
     let cli = Cli::parse();
 
     let (input_filename, output_filename) = if let Some(command) = &cli.command {

@@ -11,7 +11,7 @@ pub fn matrix_prod(matrix: &Vec<Vec<f32>>, vector: &Vec<f32>) -> Vec<f32> {
     output
 }
 
-pub fn matrix_sum(matrix1: &Vec<Vec<f32>>, matrix2: &Vec<Vec<f32>>) -> Vec<Vec<f32>> {
+pub fn _matrix_sum(matrix1: &Vec<Vec<f32>>, matrix2: &Vec<Vec<f32>>) -> Vec<Vec<f32>> {
     // Check if dimensions match
     if matrix1.len() != matrix2.len() || matrix1[0].len() != matrix2[0].len() {
         panic!("Matrices dimensions do not match");
@@ -113,8 +113,4 @@ pub fn cap(val: f32, max: f32) -> f32 {
         return max + new;
     }
     new
-}
-
-pub fn sigmoid(x: f32) -> f32 {
-    1.0 / (1.0 + (-x).exp())
 }

@@ -1,3 +1,4 @@
+pub mod activations;
 pub mod blobs;
 pub mod brains;
 pub mod cli;

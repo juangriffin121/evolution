@@ -1,10 +1,9 @@
-use serde::{Deserialize, Serialize};
-
+use super::utils::visual_neuron_activation;
 use crate::mods::brains::Brain;
 use crate::mods::utils::cap;
 use crate::mods::world::World;
+use serde::{Deserialize, Serialize};
 
-use super::utils::visual_neuron_activation;
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Blob {
     pub brain: Brain,

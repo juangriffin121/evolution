@@ -20,6 +20,7 @@ pub struct Constants {
     pub max_speed: f32,
     pub max_angle_diff: f32,
     pub graph_neurons: bool,
+    pub activation: String,
 }
 
 impl Constants {
