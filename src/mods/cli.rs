@@ -21,3 +21,18 @@ pub enum Commands {
         output_filename: String,
     },
 }
+
+pub fn parse_command(cli_command: Option<Commands>) -> (Option<String>, Option<String>) {
+    if let Some(command) = cli_command {
+        match command {
+            Commands::Save { filename } => (None, Some(filename)),
+            Commands::Load { filename } => (Some(filename), None),
+            Commands::LoadAndSave {
+                input_filename,
+                output_filename,
+            } => (Some(input_filename), Some(output_filename)),
+        }
+    } else {
+        (None, None)
+    }
+}
