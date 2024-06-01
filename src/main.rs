@@ -10,6 +10,7 @@ use crate::mods::world::World;
 fn main() {
     println!("Hello, blobworld!");
     let cli = Cli::parse();
+    let mut rng = rand::thread_rng();
 
     let (input_filename, output_filename) = if let Some(command) = &cli.command {
         match command {
@@ -31,17 +32,18 @@ fn main() {
     } else {
         println!("generating world");
         let constants = load_constants();
-        let network_shape = vec![constants.input_neurons_num, 10, 2];
+        let network_shape = vec![constants.input_neurons_num, 2];
         let world = make_world(
             constants.num_prey,
             constants.num_predators,
             network_shape,
             constants,
+            &mut rng,
         );
         world
     };
 
-    world.evolve();
+    world.evolve(&mut rng);
 
     if let Some(filename) = output_filename {
         println!("saving world");

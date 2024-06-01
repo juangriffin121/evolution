@@ -160,7 +160,7 @@ impl World {
         }
     }
 
-    fn reproduce_blobs(&mut self) {
+    fn reproduce_blobs(&mut self, rng: &mut impl Rng) {
         let mut to_reproduce = Vec::new();
         for (blob_idx, blob) in self.blobs.iter().enumerate() {
             if blob.energy >= 2.0 {
@@ -172,6 +172,7 @@ impl World {
             let (child1, child2) = blob.reproduce(
                 self.constants.reproduction_distance,
                 self.constants.mutation_rate,
+                rng,
             );
             self.blobs.push(child1);
             self.blobs.push(child2);
@@ -246,7 +247,7 @@ impl World {
 
                     chart.draw_series(std::iter::once(PathElement::new(
                         vec![blob.position, (end_x, end_y)],
-                        &BLACK,
+                        &BLACK.mix(0.1),
                     )))?;
                 }
             }
@@ -257,7 +258,7 @@ impl World {
         Ok(())
     }
 
-    pub fn update(&mut self, age: i32) {
+    pub fn update(&mut self, age: i32, rng: &mut impl Rng) {
         let (predator_indexes, prey_indexes) = self.get_indexes();
 
         let stimuli_list = self.gather_stimuli();
@@ -276,7 +277,7 @@ impl World {
 
         self.starved();
 
-        self.reproduce_blobs();
+        self.reproduce_blobs(rng);
 
         let filename = format!("./animation/frame{:04}.png", age);
         println!("{filename}");
@@ -284,9 +285,9 @@ impl World {
             .expect("something wong with graphing")
     }
 
-    pub fn evolve(&mut self) {
+    pub fn evolve(&mut self, rng: &mut impl Rng) {
         for age in 0..self.constants.ages {
-            self.update(age);
+            self.update(age, rng);
             let blobs_count = self.blobs.len();
             let predators = self
                 .blobs
@@ -331,8 +332,8 @@ pub fn make_world(
     num_predators: i32,
     network_shape: Vec<i32>,
     constants: Constants,
+    rng: &mut impl Rng,
 ) -> World {
-    let mut rng = rand::thread_rng();
     let mut blobs = Vec::new();
     for _ in 0..num_prey {
         let position = (
@@ -341,14 +342,16 @@ pub fn make_world(
         );
 
         let angle = rng.gen_range(0.0..std::f32::consts::TAU);
+        let separation = 0.1; // rng.gen_range(0.0..std::f32::consts::TAU / network_shape[0] as f32);
 
         let activation = which_activation(&constants);
         let brain = Brain::new(
             network_shape.clone(),
-            0.1,
+            separation,
             constants.neuron_length,
             None,
             activation,
+            rng,
         );
         blobs.push(Blob::new(brain, position, angle, BlobType::Prey, 1.0));
     }
@@ -367,6 +370,7 @@ pub fn make_world(
             constants.neuron_length,
             None,
             activation,
+            rng,
         );
         blobs.push(Blob::new(brain, position, angle, BlobType::Predator, 1.0));
     }

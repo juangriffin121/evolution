@@ -2,6 +2,7 @@ use super::utils::visual_neuron_activation;
 use crate::mods::brains::Brain;
 use crate::mods::utils::cap;
 use crate::mods::world::World;
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -39,10 +40,15 @@ impl Blob {
         (self.angle.cos(), self.angle.sin())
     }
 
-    pub fn reproduce(self, reproduction_distance: f32, mutation_rate: f32) -> (Blob, Blob) {
+    pub fn reproduce(
+        self,
+        reproduction_distance: f32,
+        mutation_rate: f32,
+        rng: &mut impl Rng,
+    ) -> (Blob, Blob) {
         let direction = self.direction();
         let child1 = Blob {
-            brain: self.brain.make_child(mutation_rate),
+            brain: self.brain.make_child(mutation_rate, rng),
             position: (
                 self.position.0 - reproduction_distance * self.radius() * direction.0,
                 self.position.1 - reproduction_distance * self.radius() * direction.1,
@@ -52,7 +58,7 @@ impl Blob {
             energy: self.energy / 2.,
         };
         let child2 = Blob {
-            brain: self.brain.make_child(mutation_rate),
+            brain: self.brain.make_child(mutation_rate, rng),
             position: (
                 self.position.0 + reproduction_distance * self.radius() * direction.0,
                 self.position.1 + reproduction_distance * self.radius() * direction.1,
