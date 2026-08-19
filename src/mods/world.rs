@@ -11,9 +11,9 @@ use plotters::prelude::*;
 use rand::Rng;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
-use std::fs::File;
 use std::io::{self, Read, Write};
 use std::{collections::HashSet, usize};
+use std::{fs::File, io::BufWriter};
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct World {
@@ -105,7 +105,8 @@ impl World {
         for (j, prey) in preys.iter().enumerate() {
             let distance = (predator_position.0 - prey.position.0).powi(2)
                 + (predator_position.1 - prey.position.1).powi(2);
-            if distance <= prey.radius() + predator.radius() {
+            let radii_sum = prey.radius() + predator.radius();
+            if distance <= radii_sum * radii_sum {
                 interactions.push((i, j))
             }
         }
@@ -280,33 +281,59 @@ impl World {
         self.starved();
 
         self.reproduce_blobs(rng);
-
-        let filename = format!("./animation/frame{:04}.png", age);
-        println!("{filename}");
-        self.graph(&filename, self.constants.graph_neurons)
-            .expect("something wong with graphing")
+        if self.constants.render_every > 0 && age % self.constants.render_every == 0 {
+            let frame_number = age / self.constants.render_every;
+            let filename = format!("./animation/frame{:04}.png", frame_number);
+            println!("{filename}");
+            self.graph(&filename, self.constants.graph_neurons)
+                .expect("something wong with graphing");
+        }
     }
 
     pub fn evolve(&mut self, rng: &mut impl Rng) {
+        let file = File::create(format!("runs/seed{}.csv", self.constants.seed))
+            .expect("couldn't create log");
+        let mut log = BufWriter::new(file);
+        writeln!(log, "age,prey,predators,mean_prey_energy,mean_pred_energy").unwrap();
+
         for age in 0..self.constants.ages {
             self.update(age, rng);
             let blobs_count = self.blobs.len();
-            let predators = self
+            let (preys, preds): (Vec<_>, Vec<_>) = self
                 .blobs
                 .iter()
-                .filter(|blob| blob.blob_type == BlobType::Predator)
-                .count();
-            let preys = self
-                .blobs
-                .iter()
-                .filter(|blob| blob.blob_type == BlobType::Prey)
-                .count();
-            let log = format!(
-                "all: {}, prey: {}, predators: {}",
-                blobs_count, preys, predators
+                .partition(|b| b.blob_type == BlobType::Prey);
+
+            let mean_energy = |v: &Vec<&Blob>| {
+                if v.is_empty() {
+                    0.0
+                } else {
+                    v.iter().map(|b| b.energy).sum::<f32>() / v.len() as f32
+                }
+            };
+
+            writeln!(
+                log,
+                "{},{},{},{},{}",
+                age,
+                preys.len(),
+                preds.len(),
+                mean_energy(&preys),
+                mean_energy(&preds)
+            )
+            .unwrap();
+
+            let text = format!(
+                "age: {}, all: {}, prey: {}, predators: {}",
+                age,
+                blobs_count,
+                preys.len(),
+                preds.len()
             );
-            println!("{log}");
-            if preys == 0 || predators == 0 {
+
+            println!("{text}");
+
+            if preys.is_empty() || preds.is_empty() {
                 println!("someone got extinct");
                 break;
             }

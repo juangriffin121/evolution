@@ -4,6 +4,7 @@ use std::fs;
 
 #[derive(Clone, Serialize, Deserialize, Debug)]
 pub struct Constants {
+    pub seed: i32,
     pub reproduction_distance: f32,
     pub step_size: f32,
     pub food_energy: f32,
@@ -21,6 +22,7 @@ pub struct Constants {
     pub max_angle_diff: f32,
     pub graph_neurons: bool,
     pub activation: String,
+    pub render_every: i32,
 }
 
 impl Constants {
