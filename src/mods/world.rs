@@ -1,4 +1,4 @@
-use crate::mods::constants::load_constants;
+use crate::mods::{constants::load_constants, frames::FrameWriter};
 
 use super::{
     activations::{sigmoid, tanh, which_activation},
@@ -291,10 +291,22 @@ impl World {
     }
 
     pub fn evolve(&mut self, rng: &mut impl Rng) {
+        // Write stats to csv
         let file = File::create(format!("runs/seed{}.csv", self.constants.seed))
             .expect("couldn't create log");
         let mut log = BufWriter::new(file);
         writeln!(log, "age,prey,predators,mean_prey_energy,mean_pred_energy").unwrap();
+
+        // Write state to bin if dump_frames
+        let mut frame_writer = if self.constants.dump_frames {
+            let filename = format!("runs/frames/{}.bin", self.constants.seed);
+            Some(
+                FrameWriter::new(&filename)
+                    .expect(&format!("Couldnt write to or create {}", filename)),
+            )
+        } else {
+            None
+        };
 
         for age in 0..self.constants.ages {
             self.update(age, rng);
@@ -322,6 +334,12 @@ impl World {
                 mean_energy(&preds)
             )
             .unwrap();
+
+            if let Some(writer) = &mut frame_writer {
+                writer
+                    .write_frame(age as usize, &self.blobs)
+                    .expect("Couldnt write current frame");
+            }
 
             let text = format!(
                 "age: {}, all: {}, prey: {}, predators: {}",

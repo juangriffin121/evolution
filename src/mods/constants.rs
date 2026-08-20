@@ -23,6 +23,7 @@ pub struct Constants {
     pub graph_neurons: bool,
     pub activation: String,
     pub render_every: i32,
+    pub dump_frames: bool,
 }
 
 impl Constants {
