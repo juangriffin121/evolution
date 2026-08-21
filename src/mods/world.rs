@@ -300,6 +300,7 @@ impl World {
         // Write state to bin if dump_frames
         let mut frame_writer = if self.constants.dump_frames {
             let filename = format!("runs/frames/{}.bin", self.constants.seed);
+            std::fs::create_dir_all("runs/frames").expect("couldn't create runs/frames dir");
             Some(
                 FrameWriter::new(&filename)
                     .expect(&format!("Couldnt write to or create {}", filename)),

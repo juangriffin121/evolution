@@ -2,3 +2,5 @@
 /animation
 /worlds
 /runs
+/__pycache__
+*.mp4
